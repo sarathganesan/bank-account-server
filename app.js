@@ -183,6 +183,7 @@ app.get('/report', (req, res) => {
 const jsonData = fs.readFileSync('accounts.json', 'utf8');
 const data = JSON.parse(jsonData);
 
+
 // Create a new workbook
 const workbook = xlsx.utils.book_new();
 
@@ -205,7 +206,7 @@ const transactionData = data.map(account => {
      
       type: transaction.type,
       amount: transaction.amount,
-      date: transaction.date,
+      date: transaction.date.substr(0, 10),
       toName:transaction.toName,
       fromName:transaction.fromName
     }
