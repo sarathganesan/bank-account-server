@@ -2,9 +2,9 @@ const express = require('express');
 const fs = require('fs');
 const http = require('http');
 const app = express();
-const XLSX = require('xlsx');
-const PORT = 3000;
-const $ = require('jquery');
+const xlsx = require('xlsx');
+const PORT = 4000;
+
 
 class BankAccount {
   constructor(id, name, gender, dob, email, mobile, address, initialBalance, adharNo, panNo) {
@@ -71,42 +71,42 @@ class BankAccount {
     return transaction;
   }
 
- 
 
-getBalance() {
-  return this.initialBalance;
-}
 
-getTransactions() {
-  return this.transactions;
-}
+  getBalance() {
+    return this.initialBalance;
+  }
 
-printStatement(res) {
-  // Create a new workbook and worksheet
-  const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.json_to_sheet(this.transactions);
+  getTransactions() {
+    return this.transactions;
+  }
 
-  // Add the worksheet to the workbook
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
+  printStatement(res) {
+    // Create a new workbook and worksheet
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(this.transactions);
 
-  // Generate the Excel file and save it to disk
-  const filePath = `${this.name}_statement.xlsx`;
-  XLSX.writeFile(workbook, filePath);
+    // Add the worksheet to the workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
 
-  // Use res.sendFile to send the Excel file as a response
-  res.sendFile(filePath, { root: '.' }, (err) => {
-    if (err) {
-      console.error(`Error sending file: ${err}`);
-      res.status(500).send({ error: 'Unable to send file' });
-    } else {
-      console.log('File sent successfully');
-    }
-    // Delete the file from disk after sending the response
-    fs.unlinkSync(filePath);
-  });
+    // Generate the Excel file and save it to disk
+    const filePath = `${this.name}_statement.xlsx`;
+    XLSX.writeFile(workbook, filePath);
 
-  return filePath;
-}
+    // Use res.sendFile to send the Excel file as a response
+    res.sendFile(filePath, { root: '.' }, (err) => {
+      if (err) {
+        console.error(`Error sending file: ${err}`);
+        res.status(500).send({ error: 'Unable to send file' });
+      } else {
+        console.log('File sent successfully');
+      }
+      // Delete the file from disk after sending the response
+      fs.unlinkSync(filePath);
+    });
+
+    return filePath;
+  }
 
 
 
@@ -177,6 +177,64 @@ app.get('/account/:id', (req, res) => {
   res.json(account);
 });
 
+app.get('/report', (req, res) => {
+  
+ // Read data from a JSON file
+const jsonData = fs.readFileSync('accounts.json', 'utf8');
+const data = JSON.parse(jsonData);
+
+// Create a new workbook
+const workbook = xlsx.utils.book_new();
+
+// Add a worksheet for accounts
+const accountWorksheet = xlsx.utils.json_to_sheet(data);
+
+// Set column widths for accounts worksheet
+const accountColumns = ['A', 'B', 'C', 'D','E','F','G','H','I','J','K'];
+const accountColumnWidth = 20;
+accountWorksheet['!cols'] = accountColumns.map(() => ({ width: accountColumnWidth }));
+
+// Add the accounts worksheet to the workbook
+xlsx.utils.book_append_sheet(workbook, accountWorksheet, 'Accounts');
+
+// Add a worksheet for transactions
+const transactionData = data.map(account => {
+  return account.transactions.map(transaction => {
+    return {
+      account: account.id,
+     
+      type: transaction.type,
+      amount: transaction.amount,
+      date: transaction.date,
+      toName:transaction.toName,
+      fromName:transaction.fromName
+    }
+  });
+}).flat();
+const transactionWorksheet = xlsx.utils.json_to_sheet(transactionData);
+
+// Set column widths for transactions worksheet
+const transactionColumns = ['A', 'B', 'C', 'D','E','F','G'];
+const transactionColumnWidth = 20;
+transactionWorksheet['!cols'] = transactionColumns.map(() => ({ width: transactionColumnWidth }));
+
+// Add the transactions worksheet to the workbook
+xlsx.utils.book_append_sheet(workbook, transactionWorksheet, 'Transactions');
+
+// Write the workbook to a buffer
+const buffer = xlsx.write(workbook, { type: 'buffer' });
+
+// Set the content type and attachment header
+res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+res.setHeader('Content-Disposition', 'attachment; filename=report.xlsx');
+
+// Send the buffer as the response
+res.send(buffer);
+
+
+
+
+});
 
 
 
@@ -187,7 +245,7 @@ app.put('/account/:id/deposit', (req, res) => {
 
   const data = JSON.parse(fs.readFileSync('accounts.json', 'utf-8'));
   const accountIndex = data.findIndex(acc => acc.id === id);
-  
+
   if (accountIndex === -1) {
     return res.status(404).json({ error: 'Account not found' });
   }
