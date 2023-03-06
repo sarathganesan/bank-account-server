@@ -19,6 +19,7 @@ class BankAccount {
     this.adharNo = adharNo;
     this.panNo = panNo;
     this.transactions = [];
+    this.closed = false; 
   }
 
   deposit(amount) {
@@ -71,7 +72,7 @@ class BankAccount {
     return transaction;
   }
 
-
+  
 
   getBalance() {
     return this.initialBalance;
@@ -79,6 +80,14 @@ class BankAccount {
 
   getTransactions() {
     return this.transactions;
+  }
+
+  closeAccount() {
+    if (this.closed) {
+      throw new Error('Account is already closed');
+    }
+    this.closed = true;
+    this.transactions = []; // clear transactions array to disallow future transactions
   }
 
   printStatement(res) {
@@ -448,6 +457,22 @@ app.post('/account/:id/receive', (req, res) => {
   }
 });
 
+//close account
+app.delete('/account/:id', (req, res) => {
+  const { id } = req.params;
+
+  const data = JSON.parse(fs.readFileSync('accounts.json', 'utf-8'));
+  const accountIndex = data.findIndex(acc => acc.id === id);
+
+  if (accountIndex === -1) {
+    return res.status(404).json({ error: 'Account not found' });
+  }
+
+  data.splice(accountIndex, 1);
+  fs.writeFileSync('accounts.json', JSON.stringify(data));
+
+  res.json({ message: 'Account closed successfully' });
+});
 
 
 
